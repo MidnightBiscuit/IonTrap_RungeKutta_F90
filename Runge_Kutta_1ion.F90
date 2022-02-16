@@ -1,13 +1,3 @@
-!~ To improve speed:
-!~ - on the two simulations where dt is cte, then use compilation directives to make them constants!
-!~ - make constant the ia ib indexes for the distribution of the ions across the cores
-!~ - make private rx,rz,ry on the coulomb calculation
-!~ - merge the accelartion and the velocity update openmp (to be tested if it helps, in the KZM code it did far worst)
-
-! code taken from 20210415
-! I adapt it to save all info at each simul time step
-
-
 program main
 implicit none
 
@@ -25,7 +15,7 @@ double precision, parameter :: dt_n = pi2 / n_dt
 double precision, parameter :: dt   = pi2 / (n_dt*Omega) ! simu time step
 
 ! RK4 parameters
-double precision, parameter :: gamma = 1e-20 ! friction parameter
+double precision, parameter :: gam = 1e-20 ! friction parameter
 double precision, parameter :: h = dt
 integer, parameter :: n_simu = n_dt*50 ! ! length of simulation
 integer, parameter :: order = 2
@@ -48,7 +38,7 @@ allocate(k_save(n_simu,4,2))
 t(0) = 0
 r(0) = r_0/4
 v(0) = 0
-a(0) = qe*2*V_rf /(mass*r_0**2)*cos(Omega*0)*r(0) - gamma/mass*v(0)
+a(0) = qe*2*V_rf /(mass*r_0**2)*cos(Omega*0)*r(0) - gam/mass*v(0)
 
 do n = 0 , n_simu-1
 	call update_rk4(derivs)
@@ -81,7 +71,7 @@ contains
 SUBROUTINE derivs()
 implicit none
 	dydx_temp  = v(n)
-	dydx2_temp = qe*2*V_rf /(mass*r_0**2)*cos(Omega*t(n))*r(n) - gamma/mass*v(n)
+	dydx2_temp = qe*2*V_rf /(mass*r_0**2)*cos(Omega*t(n))*r(n) - gam/mass*v(n)
 END
 
 SUBROUTINE update_rk4(f) ! f is the function that derives
