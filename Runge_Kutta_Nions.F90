@@ -17,17 +17,23 @@ include 'mkl_vsl.f90'
 program main
 USE MKL_VSL_TYPE
 USE MKL_VSL
+use omp_lib
 implicit none
 
 include 'variable_definition.f90'
+
+double precision, parameter :: T_threshold = 100* 3/m_kb_x_inv_n_ions ! Kelvin 
+
 
 TYPE (VSL_STREAM_STATE) :: stream
 integer brng,method
 integer(kind=4) errcode
 
 !~ allocate(k_save(i_simu,4,2))
-
+time00 = omp_get_wtime()
 ! Initialise ions
+print*, 'dt', h
+print*, 'n_ions', n_ions
 call init_random_generator()
 t(1) = 0
 v(1,:,:) = 0
@@ -67,12 +73,11 @@ do jj = 1 , i_simu-1    ! jj is the time step
 	call derivs(t(jj+1))
 	a(jj+1,:,:) = dydx2_temp
 enddo
-print*, 'dt', h
 
 call save_data_to_file()
 
 !~ deallocate(k_save)
-
+print*, 'Total time', omp_get_wtime() - time00
 contains
 
 ! https://github.com/MidnightBiscuit/Runge_Kutta/blob/main/Runge_Kutta_ions.ipynb
@@ -122,7 +127,12 @@ double precision               :: r2inv,cos_jj, sin_jj,Ux, Uy,Uz
 
 ! Computation of Coulomb force
 
-do nn = 1, n_ions
+    !$omp parallel default(none) &
+    !$omp private(im, r2inv,rji,nn,jj) &
+    !$omp shared (a_Coul_x,a_Coul_y,a_Coul_z) & ! Ec_aux
+    !$omp firstprivate(ia,ib,cte_aux,r_jj_temp)
+        im = omp_get_thread_num()+1
+do nn = ia(im), ib(im)
 	do j_ions = 1, n_ions
 		if (nn.ne.j_ions) then
 			rji(1)  = r_jj_temp(j_ions,1) - r_jj_temp(nn,1)
@@ -136,6 +146,7 @@ do nn = 1, n_ions
 		endif
 	enddo
 enddo
+    !$omp end parallel
 
 ! Computation of force induced by static potentials
     cos_jj = cosi(mod(jj,n_dt)+1)
